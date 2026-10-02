@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Radar — Settings</title>
+<link rel="stylesheet" href="/static/styles.css">
+<style>
+.settings-wrap{max-width:760px;margin:0 auto;padding:0 20px 60px}
+.section{border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:20px;background:var(--panel)}
+.section h2{font-size:16px;font-weight:650;margin:0 0 16px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.field{display:grid;grid-template-columns:160px 1fr;gap:10px;align-items:center;margin-bottom:10px}
+.field label{font-size:13px;color:var(--muted);text-align:right}
+.field input,.field select{padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font-size:13.5px;font-family:inherit;width:100%}
+.field input:focus,.field select:focus{outline:2px solid var(--g5);outline-offset:-1px}
+.checkbox-field{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.checkbox-field input[type=checkbox]{width:18px;height:18px;accent-color:var(--g5)}
+.checkbox-field label{font-size:13px;color:var(--ink);text-align:left}
+.btn{background:var(--accent);color:var(--bg);border:0;border-radius:8px;padding:9px 20px;font-size:14px;font-weight:600;cursor:pointer}
+.btn:disabled{opacity:.5;cursor:default}
+.btn-secondary{background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer}
+.btn-secondary:hover{border-color:var(--accent)}
+.btn-danger{background:transparent;color:#e5484d;border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer}
+.btn-danger:hover{border-color:#e5484d}
+.company-row{display:grid;grid-template-columns:1.4fr 0.8fr 1.6fr 1fr auto;gap:8px;align-items:center;margin-bottom:8px}
+.company-row input{padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);font-size:13px;font-family:inherit;width:100%}
+.company-row select{padding:7px 8px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);font-size:13px;font-family:inherit}
+.add-company{margin-top:12px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--accent);color:var(--bg);padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600;opacity:0;transition:all .3s;z-index:100}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.error{background:#e5484d;color:#fff}
+.help{font-size:11.5px;color:var(--muted);margin-top:4px}
+.discovery-queries{width:100%;min-height:80px;padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font-size:13px;font-family:inherit;resize:vertical}
+.filters-area{width:100%;min-height:60px;padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font-size:13px;font-family:inherit;resize:vertical}
+.save-bar{position:sticky;bottom:0;padding:14px 0;text-align:right}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="mark">●</span> Job Radar</div>
+  <div class="stats"><a href="/" class="btn-secondary">← Back to Dashboard</a></div>
+</div>
+
+<div class="settings-wrap">
+
+  <!-- Email / SMTP -->
+  <div class="section">
+    <h2>Email / SMTP</h2>
+    <div class="field"><label>To</label><input id="email_to" placeholder="recipient@example.com"></div>
+    <div class="field"><label>From</label><input id="email_from" placeholder="sender@example.com"></div>
+    <div class="field"><label>SMTP Host</label><input id="email_smtp_host" placeholder="smtp.gmail.com"></div>
+    <div class="field"><label>SMTP Port</label><input id="email_smtp_port" type="number" placeholder="587"></div>
+    <div class="help">SMTP password is set via JOBRADAR_SMTP_PASSWORD environment variable, not stored in config.</div>
+  </div>
+
+  <!-- LLM / Model -->
+  <div class="section">
+    <h2>LLM / Scoring</h2>
+    <div class="field">
+      <label>Provider</label>
+      <select id="llm_provider">
+        <option value="none">none (no scoring)</option>
+        <option value="ollama">ollama</option>
+        <option value="openrouter">openrouter</option>
+        <option value="xkiro">xkiro</option>
+      </select>
+    </div>
+    <div class="field"><label>Model</label><input id="llm_model" placeholder="gemma4:31b-cloud"></div>
+    <div class="field"><label>Min Score (0-10)</label><input id="llm_min_score" type="number" min="0" max="10" value="6"></div>
+    <div class="checkbox-field"><input type="checkbox" id="llm_triage"><label for="llm_triage">Triage (skip jobs below floor)</label></div>
+    <div class="field"><label>Triage Floor (0-10)</label><input id="llm_triage_floor" type="number" min="0" max="10" value="3"></div>
+    <div class="field"><label>Batch Size</label><input id="llm_batch_size" type="number" value="25"></div>
+    <div class="field"><label>Max to Score</label><input id="llm_max_to_score" type="number" value="5000"></div>
+  </div>
+
+  <!-- Companies -->
+  <div class="section">
+    <h2>Companies <span id="company_count" style="font-weight:400;color:var(--muted);font-size:13px"></span></h2>
+    <div id="companies_list"></div>
+    <div class="company-row add-company">
+      <input id="new_co_name" placeholder="Company name">
+      <select id="new_co_board">
+        <option value="">board…</option>
+        <option value="greenhouse">greenhouse</option>
+        <option value="lever">lever</option>
+        <option value="ashby">ashby</option>
+        <option value="workable">workable</option>
+        <option value="workday">workday</option>
+        <option value="oracle">oracle</option>
+        <option value="atlassian">atlassian</option>
+      </select>
+      <input id="new_co_slug" placeholder="board slug / ID">
+      <input id="new_co_domain" placeholder="company.com">
+      <button class="btn" onclick="addCompany()" style="padding:7px 14px;font-size:13px">+ Add</button>
+    </div>
+    <div class="help">Board types: greenhouse, lever, ashby, workable, workday, oracle, atlassian. Slug is the board-specific identifier (e.g. workday tenant path or oracle cloud ID).</div>
+  </div>
+
+  <!-- Discovery -->
+  <div class="section">
+    <h2>Discovery (keyword scraping)</h2>
+    <div class="checkbox-field"><input type="checkbox" id="discovery_enabled"><label for="discovery_enabled">Enabled</label></div>
+    <div class="field"><label>Max Per Query</label><input id="discovery_max" type="number" value="40"></div>
+    <div class="field"><label>Expire After Days</label><input id="discovery_expire" type="number" value="4"></div>
+    <div class="field" style="grid-template-columns:160px 1fr"><label>Queries (one per line)</label></div>
+    <textarea id="discovery_queries" class="discovery-queries" placeholder="practice administrator&#10;medical office manager"></textarea>
+  </div>
+
+  <!-- Alerts -->
+  <div class="section">
+    <h2>Alerts</h2>
+    <div class="field"><label>Min Score</label><input id="alerts_min_score" type="number" min="0" max="10" value="6"></div>
+    <div class="field"><label>Max Per Alert</label><input id="alerts_max" type="number" value="15"></div>
+    <div class="field" style="grid-template-columns:160px 1fr"><label>Companies (one per line)</label></div>
+    <textarea id="alerts_companies" class="discovery-queries" placeholder="Company names matching the companies above"></textarea>
+  </div>
+
+  <div class="save-bar">
+    <button class="btn" id="saveBtn" onclick="saveSettings()">Save Settings</button>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const BOARDS = ['greenhouse','lever','ashby','workable','workday','oracle','atlassian'];
+let cfg = {};
+
+async function loadSettings() {
+  const r = await fetch('/api/settings');
+  cfg = await r.json();
+  if (cfg.error) { showToast(cfg.error, true); return; }
+
+  // Email
+  const e = cfg.email || {};
+  document.getElementById('email_to').value = e.to || '';
+  document.getElementById('email_from').value = e.from || '';
+  document.getElementById('email_smtp_host').value = e.smtp_host || '';
+  document.getElementById('email_smtp_port').value = e.smtp_port || 587;
+
+  // LLM
+  const l = cfg.llm || {};
+  document.getElementById('llm_provider').value = l.provider || 'none';
+  document.getElementById('llm_model').value = l.model || '';
+  document.getElementById('llm_min_score').value = l.min_score ?? 6;
+  document.getElementById('llm_triage').checked = l.triage || false;
+  document.getElementById('llm_triage_floor').value = l.triage_floor ?? 3;
+  document.getElementById('llm_batch_size').value = l.batch_size ?? 25;
+  document.getElementById('llm_max_to_score').value = l.max_to_score ?? 5000;
+
+  // Companies
+  renderCompanies(cfg.companies || []);
+
+  // Discovery
+  const d = cfg.discovery || {};
+  document.getElementById('discovery_enabled').checked = d.enabled !== false;
+  document.getElementById('discovery_max').value = d.max_per_query ?? 40;
+  document.getElementById('discovery_expire').value = d.expire_after_days ?? 4;
+  document.getElementById('discovery_queries').value = (d.queries || []).join('\n');
+
+  // Alerts
+  const a = cfg.alerts || {};
+  document.getElementById('alerts_min_score').value = a.min_score ?? 6;
+  document.getElementById('alerts_max').value = a.max_per_alert ?? 15;
+  document.getElementById('alerts_companies').value = (a.companies || []).join('\n');
+}
+
+function renderCompanies(companies) {
+  const list = document.getElementById('companies_list');
+  document.getElementById('company_count').textContent = `(${companies.length})`;
+  list.innerHTML = companies.map((c, i) => `
+    <div class="company-row" data-idx="${i}">
+      <input value="${esc(c.name)}" data-field="name" placeholder="Company name">
+      <select data-field="board">${BOARDS.map(b => `<option value="${b}" ${c.board===b?'selected':''}>${b}</option>`).join('')}</select>
+      <input value="${esc(c.slug)}" data-field="slug" placeholder="board slug">
+      <input value="${esc(c.domain||'')}" data-field="domain" placeholder="company.com">
+      <button class="btn-danger" onclick="removeCompany(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function esc(s) { return (s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function addCompany() {
+  const name = document.getElementById('new_co_name').value.trim();
+  const board = document.getElementById('new_co_board').value;
+  const slug = document.getElementById('new_co_slug').value.trim();
+  const domain = document.getElementById('new_co_domain').value.trim();
+  if (!name || !board || !slug) { showToast('Name, board, and slug are required', true); return; }
+  if (!cfg.companies) cfg.companies = [];
+  cfg.companies.push({ name, board, slug, domain });
+  renderCompanies(cfg.companies);
+  document.getElementById('new_co_name').value = '';
+  document.getElementById('new_co_board').value = '';
+  document.getElementById('new_co_slug').value = '';
+  document.getElementById('new_co_domain').value = '';
+  showToast('Company added — click Save to persist');
+}
+
+function removeCompany(idx) {
+  cfg.companies.splice(idx, 1);
+  renderCompanies(cfg.companies);
+  showToast('Company removed — click Save to persist');
+}
+
+function collectCompanies() {
+  const rows = document.querySelectorAll('#companies_list .company-row');
+  return Array.from(rows).map(row => ({
+    name: row.querySelector('[data-field=name]').value.trim(),
+    board: row.querySelector('[data-field=board]').value,
+    slug: row.querySelector('[data-field=slug]').value.trim(),
+    domain: row.querySelector('[data-field=domain]').value.trim(),
+  })).filter(c => c.name && c.board && c.slug);
+}
+
+async function saveSettings() {
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  // Sync edited companies back
+  cfg.companies = collectCompanies();
+
+  const payload = {
+    email: {
+      to: document.getElementById('email_to').value.trim(),
+      from: document.getElementById('email_from').value.trim(),
+      smtp_host: document.getElementById('email_smtp_host').value.trim(),
+      smtp_port: parseInt(document.getElementById('email_smtp_port').value) || 587,
+    },
+    llm: {
+      provider: document.getElementById('llm_provider').value,
+      model: document.getElementById('llm_model').value.trim(),
+      min_score: parseInt(document.getElementById('llm_min_score').value) || 6,
+      triage: document.getElementById('llm_triage').checked,
+      triage_floor: parseInt(document.getElementById('llm_triage_floor').value) || 3,
+      batch_size: parseInt(document.getElementById('llm_batch_size').value) || 25,
+      max_to_score: parseInt(document.getElementById('llm_max_to_score').value) || 5000,
+    },
+    companies: cfg.companies,
+    discovery: {
+      enabled: document.getElementById('discovery_enabled').checked,
+      queries: document.getElementById('discovery_queries').value.split('\n').map(s=>s.trim()).filter(Boolean),
+      max_per_query: parseInt(document.getElementById('discovery_max').value) || 40,
+      expire_after_days: parseInt(document.getElementById('discovery_expire').value) || 4,
+    },
+    alerts: {
+      companies: document.getElementById('alerts_companies').value.split('\n').map(s=>s.trim()).filter(Boolean),
+      min_score: parseInt(document.getElementById('alerts_min_score').value) || 6,
+      max_per_alert: parseInt(document.getElementById('alerts_max').value) || 15,
+    },
+  };
+
+  // Preserve other sections
+  if (cfg.filters) payload.filters = cfg.filters;
+  if (cfg.digest) payload.digest = cfg.digest;
+
+  try {
+    const r = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const result = await r.json();
+    if (result.ok) {
+      showToast('Settings saved');
+      cfg = await (await fetch('/api/settings')).json();
+    } else {
+      showToast(result.error || 'Save failed', true);
+    }
+  } catch(err) {
+    showToast('Save failed: ' + err.message, true);
+  }
+  btn.disabled = false; btn.textContent = 'Save Settings';
+}
+
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => t.className = 'toast' + (isError ? ' error' : ''), 3000);
+}
+
+loadSettings();
+</script>
+</body>
+</html>

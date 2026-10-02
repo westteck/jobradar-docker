@@ -12,9 +12,11 @@ import threading
 import time
 from pathlib import Path
 
+import yaml
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from .. import sources
 from ..cursor import CursorError
@@ -261,3 +263,55 @@ def scan(limit: int = 120):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ── Settings ──────────────────────────────────────────────────────────────────
+
+CONFIG_PATH = ROOT / "config.yaml"
+
+
+@app.get("/settings")
+def settings_page():
+    return FileResponse(str(STATIC / "settings.html"))
+
+
+@app.get("/api/settings")
+def get_settings():
+    if not CONFIG_PATH.exists():
+        return {"error": "config.yaml not found"}
+    return yaml.safe_load(CONFIG_PATH.read_text()) or {}
+
+
+class CompanyEntry(BaseModel):
+    name: str
+    board: str
+    slug: str
+    domain: str = ""
+
+
+class SettingsUpdate(BaseModel):
+    email: dict | None = None
+    llm: dict | None = None
+    companies: list[CompanyEntry] | None = None
+    discovery: dict | None = None
+    filters: dict | None = None
+    alerts: dict | None = None
+    digest: dict | None = None
+
+
+@app.post("/api/settings")
+def update_settings(updates: SettingsUpdate):
+    if not CONFIG_PATH.exists():
+        return {"error": "config.yaml not found"}
+    cfg = yaml.safe_load(CONFIG_PATH.read_text()) or {}
+    changed = []
+    for section in ("email", "llm", "discovery", "filters", "alerts", "digest"):
+        val = getattr(updates, section)
+        if val is not None:
+            cfg[section] = val
+            changed.append(section)
+    if updates.companies is not None:
+        cfg["companies"] = [c.model_dump() for c in updates.companies]
+        changed.append("companies")
+    CONFIG_PATH.write_text(yaml.dump(cfg, default_flow_style=False, sort_keys=False))
+    return {"ok": True, "changed": changed}
