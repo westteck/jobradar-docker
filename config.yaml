@@ -1,6 +1,5 @@
 # JobRadar config — deployed on 10.10.10.111
-# Scoring starts disabled (provider: none) — tracking + web UI only.
-# Enable ollama scoring later by setting provider: ollama and a model name.
+# Scoring: ollama + gemma4:31b-cloud — LLM scores each job against resume.pdf
 
 email:
   to: raggsy@westteck.com
@@ -49,8 +48,8 @@ filters:
   locations: []
 
 llm:
-  provider: none
-  model: ""
+  provider: ollama
+  model: "gemma4:31b-cloud"
   min_score: 6
   triage: false
   triage_floor: 3
