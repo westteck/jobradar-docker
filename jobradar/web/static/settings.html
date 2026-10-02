@@ -166,6 +166,7 @@ async function loadSettings() {
 }
 
 function renderCompanies(companies) {
+  companies = [...companies].sort((a, b) => (a.name||'').toLowerCase().localeCompare((b.name||'').toLowerCase()));
   const list = document.getElementById('companies_list');
   document.getElementById('company_count').textContent = `(${companies.length})`;
   list.innerHTML = companies.map((c, i) => `

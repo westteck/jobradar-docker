@@ -146,7 +146,7 @@ def arbeitnow(query: str, limit: int = 40) -> list[dict]:
 def discover(queries: list[str], max_per_query: int = 40) -> tuple[list[dict], list[str]]:
     jobs, errors = [], []
     for q in queries:
-        for fn in (remotive, arbeitnow):
+        for fn in (remotive, arbeitnow, neogov_search):
             try:
                 jobs.extend(fn(q, max_per_query))
             except Exception as e:  # noqa: BLE001
@@ -251,5 +251,34 @@ def neogov(name: str, slug: str) -> list[dict]:
         posted = _epoch(j.get("PostingDate")) if "/" in (j.get("PostingDate") or "") else None
         out.append(_norm(name, title, url, loc, posted, desc, "neogov"))
     return out
+
+def neogov_search(query: str, limit: int = 40) -> list[dict]:
+    """Global search across ALL governmentjobs.com agencies via HTML scraping.
+    Unlike neogov() which hits one agency's loadJobsOnMaps, this searches the
+    public /jobs?keywords= endpoint and parses the resulting job-item cards."""
+    import requests as _r
+    url = f"https://www.governmentjobs.com/jobs?keywords={_r.utils.quote(query)}&rows=50"
+    headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"}
+    resp = _r.get(url, headers=headers, timeout=TIMEOUT)
+    resp.raise_for_status()
+    html = resp.text
+    out = []
+    items = re.findall(
+        r'<li[^>]*class="[^"]*job-item[^"]*"[^>]*data-job-id="([^"]*)"[^>]*>(.*?)</li>',
+        html, re.S)
+    for jid, block in items[:limit]:
+        m = re.search(r'<a[^>]*class="job-details-link"[^>]*href="([^"]*)"[^>]*>(.*?)</a>', block, re.S)
+        if not m:
+            continue
+        href = m.group(1)
+        title = re.sub(r'<[^>]+>', '', m.group(2)).strip()
+        job_url = f"https://www.governmentjobs.com{href}" if href.startswith("/") else href
+        m_ag = re.search(r'<div class="primaryInfo job-organization">(.*?)</div>', block, re.S)
+        agency = re.sub(r'<[^>]+>', '', m_ag.group(1)).strip() if m_ag else "Government"
+        m_loc = re.search(r'<span class="job-location">(.*?)</span>', block, re.S)
+        location = re.sub(r'<[^>]+>', '', m_loc.group(1)).strip() if m_loc else ""
+        out.append(_norm(agency, title, job_url, location, None, "", "neogov_search"))
+    return out
+
 
 BOARDS.update({"workday": workday, "oracle": oracle_cloud, "atlassian": atlassian_board, "neogov": neogov})

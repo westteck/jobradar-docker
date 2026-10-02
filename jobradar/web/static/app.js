@@ -61,6 +61,7 @@ function currentFilter() {
     q: ($("q").value || "").trim().toLowerCase(),
     min: Number($("minscore").value || 0),
     company: $("co").value || "",
+    wftype: ($("wftype").value || ""),
     newOnly: $("newonly").checked,
   };
 }
@@ -75,6 +76,16 @@ function matches(job, f) {
   if (f.min && (job.score === null || job.score === undefined || job.score < f.min)) return false;
   if (f.newOnly && (!job.first_seen || Date.now() / 1000 - job.first_seen > WEEK)) return false;
   if (f.q && searchIds && !searchIds.has(job.id)) return false;
+  if (f.wftype) {
+    const types = f.wftype.split(",");
+    const loc = (job.location || "").toLowerCase();
+    const desc = (job.description || "").toLowerCase();
+    const text = loc + " " + desc;
+    const isRemote = /\bremote\b/.test(text);
+    const isHybrid = /\bhybrid\b/.test(text);
+    const ok = types.some(t => t === "remote" ? isRemote : t === "hybrid" ? isHybrid : false);
+    if (!ok) return false;
+  }
   return true;
 }
 
@@ -104,7 +115,7 @@ function renderGrid() {
     grid.appendChild(el);
     shown++;
   }
-  const filtered = f.q || f.min || f.company || f.newOnly;
+  const filtered = f.q || f.min || f.company || f.wftype || f.newOnly;
   if (!jobs.length) {
     $("gridnote").textContent = "no jobs yet — press Scan";
   } else if (!shown) {
@@ -387,6 +398,7 @@ $("scan").onclick = startScan;
 $("q").addEventListener("input", onFilterChange);
 $("minscore").addEventListener("change", renderGrid);
 $("co").addEventListener("change", renderGrid);
+$("wftype").addEventListener("change", renderGrid);
 $("newonly").addEventListener("change", renderGrid);
 $("q").addEventListener("keydown", (e) => {
   if (e.key === "Escape") { $("q").value = ""; searchIds = null; renderGrid(); }
