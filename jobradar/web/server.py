@@ -270,6 +270,101 @@ def scan(limit: int = 120):
 CONFIG_PATH = ROOT / "config.yaml"
 
 
+# ── Board detection from URL ──────────────────────────────────────────────────
+
+import re as _re
+from urllib.parse import urlparse as _urlparse
+
+
+def _detect_board(url: str) -> dict:
+    """Pattern-match a careers URL → {board, slug, domain} or {error}."""
+    url = (url or "").strip()
+    if not url:
+        return {"error": "URL is required"}
+    if not url.startswith("http"):
+        url = "https://" + url
+
+    try:
+        p = _urlparse(url)
+    except Exception:
+        return {"error": "invalid URL"}
+    host = (p.hostname or "").lower()
+    path_parts = [s for s in (p.path or "").split("/") if s]
+
+    # Greenhouse: boards.greenhouse.io/{slug}
+    if "greenhouse.io" in host:
+        if not path_parts:
+            return {"error": "Greenhouse URL missing board slug"}
+        return {"board": "greenhouse", "slug": path_parts[0], "domain": ""}
+
+    # Lever: jobs.lever.co/{slug}
+    if "lever.co" in host:
+        if not path_parts:
+            return {"error": "Lever URL missing board slug"}
+        return {"board": "lever", "slug": path_parts[0], "domain": ""}
+
+    # Ashby: jobs.ashbyhq.com/{slug}
+    if "ashbyhq.com" in host:
+        if not path_parts:
+            return {"error": "Ashby URL missing board slug"}
+        return {"board": "ashby", "slug": path_parts[0], "domain": ""}
+
+    # Workable: apply.workable.com/{slug}
+    if "workable.com" in host:
+        if not path_parts:
+            return {"error": "Workable URL missing board slug"}
+        return {"board": "workable", "slug": path_parts[0], "domain": ""}
+
+    # Workday: {tenant}.{wdN}.myworkdayjobs.com/{site}
+    if "myworkdayjobs.com" in host:
+        m = _re.match(r"^([^.]+)\.(wd\d+)\.myworkdayjobs\.com$", host)
+        if not m:
+            return {"error": "Workday URL must be like tenant.wdN.myworkdayjobs.com/site"}
+        tenant, wd = m.group(1), m.group(2)
+        site = path_parts[0] if path_parts else ""
+        if not site:
+            return {"error": "Workday URL missing site segment"}
+        slug = f"{tenant}/{wd}/{site}"
+        domain = f"{tenant}.com"
+        return {"board": "workday", "slug": slug, "domain": domain}
+
+    # Oracle: {host}.oraclecloud.com/.../sites/{site}
+    if "oraclecloud.com" in host:
+        # host is like ecvz.fa.us2.oraclecloud.com
+        # site number is in the path after /sites/
+        site = None
+        for i, seg in enumerate(path_parts):
+            if seg == "sites" and i + 1 < len(path_parts):
+                site = path_parts[i + 1]
+                break
+        if not site:
+            return {"error": "Oracle URL must include /sites/{siteNumber}"}
+        slug = f"{host}/{site}"
+        return {"board": "oracle", "slug": slug, "domain": ""}
+
+    # Atlassian: atlassian.com with careers in path
+    if "atlassian.com" in host:
+        return {"board": "atlassian", "slug": "atlassian", "domain": "atlassian.com"}
+
+
+    # NeoGov: governmentjobs.com/careers/{slug} or schooljobs.com/careers/{slug}
+    if "governmentjobs.com" in host or "schooljobs.com" in host:
+        if "careers" in path_parts:
+            idx = path_parts.index("careers")
+            if idx + 1 < len(path_parts):
+                return {"board": "neogov", "slug": path_parts[idx + 1], "domain": ""}
+        return {"error": "NeoGov URL must include /careers/{slug}"}
+    return {"error": f"Could not detect board type from {host}"}
+
+
+@app.post("/api/detect-board")
+def detect_board(payload: dict):
+    url = (payload or {}).get("url", "").strip()
+    if not url:
+        return {"error": "URL is required"}
+    return _detect_board(url)
+
+
 @app.get("/settings")
 def settings_page():
     return FileResponse(str(STATIC / "settings.html"))
