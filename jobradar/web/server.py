@@ -408,7 +408,24 @@ def update_settings(updates: SettingsUpdate):
     for section in ("email", "llm", "discovery", "filters", "alerts", "digest", "schedule"):
         val = getattr(updates, section)
         if val is not None:
-            cfg[section] = val
+            # Merge email section instead of replacing — preserves smtp_password
+            # when the client sends email settings without a password
+            if section == "email" and isinstance(val, dict):
+                existing = cfg.get("email", {}) or {}
+                incoming = val
+                # Only update password if client explicitly sent one
+                if incoming.get("smtp_password"):
+                    existing["smtp_password"] = incoming["smtp_password"]
+                elif "smtp_password" not in incoming:
+                    # Client didn't send password field at all — keep existing
+                    pass
+                # Update all other email fields
+                for k, v in incoming.items():
+                    if k != "smtp_password":
+                        existing[k] = v
+                cfg["email"] = existing
+            else:
+                cfg[section] = val
             changed.append(section)
     if updates.companies is not None:
         cfg["companies"] = [c.model_dump() for c in updates.companies]
