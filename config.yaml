@@ -1,0 +1,68 @@
+# JobRadar config — deployed on 10.10.10.111
+# Scoring starts disabled (provider: none) — tracking + web UI only.
+# Enable ollama scoring later by setting provider: ollama and a model name.
+
+email:
+  to: raggsy@westteck.com
+  from: raggsy@westteck.com
+  smtp_host: smtp.gmail.com
+  smtp_port: 587
+
+resume_path: resume.pdf
+
+# ─────────────────────────────────────────────────────────────
+# Companies — healthcare systems, medical staffing, and related
+# All entries verified: API endpoints return live job postings.
+# ─────────────────────────────────────────────────────────────
+companies:
+  # --- Oracle Recruiting Cloud (board: oracle) ---
+  - { name: 'Adventist Health', board: oracle, slug: 'ecvz.fa.us2.oraclecloud.com/CX_1', domain: adventisthealth.org }
+  - { name: 'Providence Health', board: oracle, slug: 'evac.fa.us2.oraclecloud.com/CX_1', domain: providence.org }
+  - { name: 'Molina Healthcare', board: oracle, slug: 'hckd.fa.us2.oraclecloud.com/CX_1', domain: molinahealthcare.com }
+  - { name: 'Envision Healthcare', board: oracle, slug: 'eney.fa.us2.oraclecloud.com/CX_1001', domain: envisionhealth.com }
+  - { name: 'Tenet Healthcare', board: oracle, slug: 'eodr.fa.us2.oraclecloud.com/CX_1001', domain: tenethealth.com }
+  - { name: 'Loma Linda University Health', board: oracle, slug: 'egln.fa.us2.oraclecloud.com/CX_1', domain: lomalindahealth.org }
+
+  # --- Workday (board: workday) ---
+  - { name: 'US Acute Care Solutions', board: workday, slug: 'usacs/wd1/usacscareers', domain: usacs.com }
+  - { name: 'Fresenius Medical Care', board: workday, slug: 'freseniusmedicalcare/wd3/fme', domain: freseniusmedicalcare.com }
+  - { name: 'Marathon Health', board: workday, slug: 'marathonhealth/wd501/Marathon-Health-Careers', domain: marathon-health.com }
+  - { name: 'Centene', board: workday, slug: 'centene/wd5/centene_external', domain: centene.com }
+  - { name: 'Elevance Health (Anthem Blue Cross)', board: workday, slug: 'elevancehealth/wd1/ANT', domain: elevancehealth.com }
+  - { name: 'Stryker', board: workday, slug: 'stryker/wd1/StrykerCareers', domain: stryker.com }
+  - { name: 'Sharp HealthCare', board: workday, slug: 'sharp/wd1/External', domain: sharp.com }
+  - { name: 'Palomar Health', board: workday, slug: 'palomarhealth/wd5/PH', domain: palomarhealth.org }
+
+# ─────────────────────────────────────────────────────────────
+# Discovery — keyword-based scraping via Remotive + Arbeitnow
+# Queries target practice admin, privacy specialist, medical admin
+# ─────────────────────────────────────────────────────────────
+discovery:
+  enabled: true
+  queries: ["practice administrator", "medical office manager", "healthcare administrator", "privacy specialist", "medical staff coordinator", "practice manager"]
+  max_per_query: 40
+  expire_after_days: 4
+
+filters:
+  title_include: ["administrator", "manager", "coordinator", "specialist", "analyst", "director", "officer", "assistant", "supervisor", "privacy", "compliance", "operations", "medical", "practice", "healthcare", "clinic", "office"]
+  title_exclude: ["intern", "resident", "fellow", "10+ years", "chief medical", "physician", "nurse practitioner", "MD ", "DO "]
+  locations: []
+
+llm:
+  provider: none
+  model: ""
+  min_score: 6
+  triage: false
+  triage_floor: 3
+  batch_size: 25
+  tokens_per_batch: 3400
+  daily_token_limit: 500000
+  max_to_score: 5000
+
+digest:
+  max_jobs: 60
+
+alerts:
+  companies: [Adventist Health, Providence Health, Molina Healthcare, Envision Healthcare, Tenet Healthcare, Loma Linda University Health, US Acute Care Solutions, Fresenius Medical Care, Marathon Health, Centene, Elevance Health (Anthem Blue Cross), Stryker, Sharp HealthCare, Palomar Health]
+  min_score: 6
+  max_per_alert: 15

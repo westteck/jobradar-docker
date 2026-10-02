@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  jobradar:
+    # Build from this repo (the fork) — no separate repo clone needed.
+    # Deploy: clone this repo to /local/docker/jobradar/repo, then docker compose up -d --build
+    build: /local/docker/jobradar/repo
+    container_name: jobradar
+    network_mode: host
+    volumes:
+      - /local/docker/jobradar/config.yaml:/app/config.yaml
+      - /local/docker/jobradar/resume.pdf:/app/resume.pdf
+      - /local/docker/jobradar/data/jobradar.db:/app/jobradar.db
+      - /local/docker/jobradar/data/.resume_details.json:/app/.resume_details.json
+      - /local/docker/jobradar/data/.resume_profile.json:/app/.resume_profile.json
+    environment:
+      - XKIRO_API_KEY=${XKIRO_API_KEY:-}
+      - JOBRADAR_SMTP_PASSWORD=${JOBRADAR_SMTP_PASSWORD:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+    restart: unless-stopped
