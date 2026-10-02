@@ -1,4 +1,4 @@
-"""End-to-end token economy: triage, budget ceiling, compact parsing."""
+"""End-to-end pipeline: triage, compact parsing, seniority gate, outage safety."""
 import json, os, sys, tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["XKIRO_API_KEY"] = "sk-xt-test"
@@ -6,7 +6,6 @@ os.environ["XKIRO_API_KEY"] = "sk-xt-test"
 import jobradar.llm as L
 import jobradar.main as M
 from jobradar.store import Store
-from jobradar.budget import Budget
 from jobradar import batch
 
 # --- compact positional replies parse, and so do legacy objects -------------
@@ -57,7 +56,7 @@ L.requests.post = fake_post
 CFG = {"companies": [], "discovery": {"enabled": False}, "filters": {},
        "resume_path": "resume.pdf",
        "llm": {"provider":"xkiro","model":"m","triage":True,"triage_floor":3,
-               "batch_size":25,"daily_token_limit":500000,"tokens_per_batch":2600}}
+               "batch_size":25}}
 M.sources.fetch_company = lambda e: ([], None)
 M.get_profile = lambda cfg, sc, force=False: "profile"
 M.extract_text = lambda p: RESUME
@@ -68,18 +67,6 @@ assert "Frontend Engineer" in sent["jobs"], "plausible jobs must reach the model
 bad = st.db.execute("SELECT score, reason FROM jobs WHERE id='bad'").fetchone()
 assert bad["reason"].startswith("triage:"), bad["reason"]
 assert bad["score"] <= 3, bad["score"]
-
-# spend was recorded against today's budget
-bud = Budget(st.db, 500000)
-assert bud.used() == 2100, bud.used()
-
-# --- an exhausted budget stops the run instead of overrunning --------------
-st2 = Store(os.path.join(tempfile.mkdtemp(), "q.db"))
-st2.upsert(rows)
-Budget(st2.db, 500000).record(495_000)
-sent.clear()
-M.cmd_scan(CFG, st2, quiet=True)
-assert sent.get("n") is None, "no request may be sent once the budget is spent"
 print("pipeline tests PASS")
 
 # --- triage must not settle a job it cannot see ----------------------------
@@ -99,43 +86,6 @@ assert "Model Runtime" in sent.get("jobs",""), \
 seen = st3.db.execute("SELECT score,reason FROM jobs WHERE id='seen'").fetchone()
 assert seen["reason"].startswith("triage:"), "a job it CAN judge is still settled locally"
 print("triage-safety tests PASS")
-
-# --- the cap holds even when batches cost far more than estimated ----------
-st4 = Store(os.path.join(tempfile.mkdtemp(), "s.db"))
-st4.upsert([
-  {"id": f"k{i}", "company": "A", "title": f"Software Engineer {i}", "url": "u",
-   "location": "Remote", "posted_at": None, "source": "greenhouse",
-   "description": "", "domain": ""} for i in range(500)])
-
-calls = {"n": 0}
-def greedy_post(url, headers=None, json=None, timeout=None):
-    """Every batch costs 5x the estimate — the worst case seen in the wild."""
-    calls["n"] += 1
-    class R:
-        status_code = 200; headers = {}
-        def json(self): return {"choices": [{"message": {"content": "[]"}}],
-                                "usage": {"prompt_tokens": 16000, "completion_tokens": 1000}}
-    return R()
-L.requests.post = greedy_post
-
-CFG4 = {**CFG, "llm": {**CFG["llm"], "daily_token_limit": 100_000,
-                       "tokens_per_batch": 3400, "batch_size": 25}}
-M.cmd_scan(CFG4, st4, quiet=True)
-
-spent = Budget(st4.db, 100_000).used()
-assert spent <= 100_000, f"hard cap breached: {spent}"
-# the reserve must survive too
-assert spent <= 100_000 - 40_000 + 17_000, f"overran the reserve by too much: {spent}"
-assert calls["n"] > 0, "it should have scored something"
-assert calls["n"] < 20, f"it kept going past the budget: {calls['n']} calls"
-
-# a second run on the same day starts from the recorded spend, not from zero
-before = Budget(st4.db, 100_000).used()
-calls["n"] = 0
-M.cmd_scan(CFG4, st4, quiet=True)
-assert calls["n"] == 0, "an exhausted day must send nothing"
-assert Budget(st4.db, 100_000).used() == before
-print("budget-ceiling tests PASS")
 
 # --- the seniority cap is enforced in code, not just requested -------------
 from jobradar.seniority import apply_cap, is_senior

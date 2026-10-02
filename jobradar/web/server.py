@@ -19,7 +19,6 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .. import sources
-from ..cursor import CursorError
 from ..llm import RateLimited
 from ..main import ROOT, get_profile, get_scorer, load_config, passes_filters
 from ..resume import build_details, extract_text, parse_details
@@ -174,8 +173,8 @@ def _scan_events(limit: int):
             rows = s.unscored(limit)
             emit("scoring", count=len(rows), backlog=s.unscored_count())
 
-            # A batched backend (Cursor) judges many postings per agent run, so
-            # chunk; a per-job backend gets chunks of one and behaves as before.
+            # A batched backend judges many postings per call, so chunk;
+            # a per-job backend gets chunks of one and behaves as before.
             batched = hasattr(scorer, "score_batch")
             size = int(c.get("llm", {}).get("batch_size", getattr(scorer, "batch_size", 25)))
             chunks = ([rows[i:i + size] for i in range(0, len(rows), size)]
@@ -197,7 +196,7 @@ def _scan_events(limit: int):
                         results = scorer.score_batch(prof, payload)
                     else:
                         results = {chunk[0]["id"]: scorer.score(prof, payload[0])}
-                except (RateLimited, CursorError) as e:
+                except RateLimited as e:
                     emit("throttled", message=str(e), scored=done)
                     break
                 for row in chunk:
@@ -372,13 +371,16 @@ def settings_page():
 
 @app.get("/api/settings")
 def get_settings():
+    from fastapi.responses import JSONResponse
     if not CONFIG_PATH.exists():
-        return {"error": "config.yaml not found"}
+        return JSONResponse({"error": "config.yaml not found"}, media_type="application/json",
+                            headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
     cfg = yaml.safe_load(CONFIG_PATH.read_text()) or {}
     # Never expose the SMTP password value — only whether it's set
     if cfg.get("email", {}).get("smtp_password"):
         cfg["email"]["smtp_password"] = True
-    return cfg
+    return JSONResponse(cfg, media_type="application/json",
+                        headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 
 class CompanyEntry(BaseModel):

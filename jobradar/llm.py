@@ -1,7 +1,7 @@
 """Chat-completions client for providers that speak the OpenAI shape.
 
-The active backend is Cursor (see cursor.py), which has no such endpoint. This
-remains for Ollama and for the shared scorer interface."""
+Used by the ChatScorer backend. LocalScorer (localmatch.py) has no such
+endpoint and lives behind the same scorer interface."""
 from __future__ import annotations
 
 import json
@@ -19,8 +19,8 @@ class RateLimited(Exception):
     scoring and keep what it has, not abort and lose the scan."""
 
 
-# Chat-completions providers. Cursor is NOT here: it has no such endpoint and
-# lives in cursor.py behind the same scorer interface.
+# Chat-completions providers. LocalScorer is NOT here: it has no such
+# endpoint and lives in localmatch.py behind the same scorer interface.
 ENDPOINTS = {
     "xkiro":      ("https://api.xkiro.com/v1/chat/completions",       "XKIRO_API_KEY"),
     "openrouter": ("https://openrouter.ai/api/v1/chat/completions",   "OPENROUTER_API_KEY"),
@@ -207,10 +207,4 @@ def make_scorer(provider: str, model: str, params: dict | None = None):
     if provider == "local":
         from .localmatch import LocalScorer
         return LocalScorer(model)          # `model` carries the resume text here
-    if provider == "cursor":
-        from .cursor import CursorScorer
-        return CursorScorer(model, params)
-    if provider == "jev":
-        from .jev import JevScorer
-        return JevScorer(model)
     return ChatScorer(provider, model)
