@@ -70,6 +70,7 @@ def render(new_jobs, closed_jobs, period_label: str, notes: list[str]) -> tuple[
         {err_html}
         <p class="foot">Sent by jobradar running on your Mac. Scores come from an LLM reading
         your resume against each posting — treat them as a sort order, not a verdict.</p>
+        <p class="foot" style="margin-top:18px;font-size:12px;color:#888;">— Sent from <a href="http://10.10.10.111:8765">JobRadar</a></p>
       </div></body></html>"""
 
     lines = [f"JOB RADAR — {period_label}", ""]

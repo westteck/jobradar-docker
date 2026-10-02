@@ -82,6 +82,7 @@ def render(rows, label: str) -> tuple[str, str]:
         {items}
         <p class="foot">Sent because these employers are in your alerts list.
         Change it under <code>alerts.companies</code> in config.yaml.</p>
+        <p class="foot" style="margin-top:18px;font-size:12px;color:#888;">— Sent from <a href="http://10.10.10.111:8765">JobRadar</a></p>
       </div></body></html>"""
     text = "\n".join(
         f"{'[%d/10] ' % r['score'] if r['score'] is not None else ''}{r['title']} — "
