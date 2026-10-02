@@ -392,6 +392,7 @@ class SettingsUpdate(BaseModel):
     filters: dict | None = None
     alerts: dict | None = None
     digest: dict | None = None
+    schedule: dict | None = None
 
 
 @app.post("/api/settings")
@@ -400,7 +401,7 @@ def update_settings(updates: SettingsUpdate):
         return {"error": "config.yaml not found"}
     cfg = yaml.safe_load(CONFIG_PATH.read_text()) or {}
     changed = []
-    for section in ("email", "llm", "discovery", "filters", "alerts", "digest"):
+    for section in ("email", "llm", "discovery", "filters", "alerts", "digest", "schedule"):
         val = getattr(updates, section)
         if val is not None:
             cfg[section] = val

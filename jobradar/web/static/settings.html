@@ -114,6 +114,31 @@
     <textarea id="alerts_companies" class="discovery-queries" placeholder="Company names matching the companies above"></textarea>
   </div>
 
+  <!-- Schedule -->
+  <div class="section">
+    <h2>Schedule</h2>
+    <div class="help" style="margin-bottom:12px">Toggle automated email alerts and digests. Host cron runs the wrapper script, which checks these settings before sending.</div>
+    <div style="border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:12px">
+      <div class="checkbox-field"><input type="checkbox" id="sched_alert_enabled"><label for="sched_alert_enabled"><strong>Daily Alert</strong> — email new high-scoring jobs from watched companies</label></div>
+      <div class="field"><label>Time</label><input id="sched_alert_time" type="time" value="07:00"></div>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:8px;padding:14px">
+      <div class="checkbox-field"><input type="checkbox" id="sched_digest_enabled"><label for="sched_digest_enabled"><strong>Weekly Digest</strong> — email ranked summary of all unreported jobs</label></div>
+      <div class="field"><label>Time</label><input id="sched_digest_time" type="time" value="08:00"></div>
+      <div class="field"><label>Day</label>
+        <select id="sched_digest_day">
+          <option value="monday">Monday</option>
+          <option value="tuesday">Tuesday</option>
+          <option value="wednesday">Wednesday</option>
+          <option value="thursday">Thursday</option>
+          <option value="friday">Friday</option>
+          <option value="saturday">Saturday</option>
+          <option value="sunday">Sunday</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
   <div class="save-bar">
     <button class="btn" id="saveBtn" onclick="saveSettings()">Save Settings</button>
   </div>
@@ -163,6 +188,16 @@ async function loadSettings() {
   document.getElementById('alerts_min_score').value = a.min_score ?? 6;
   document.getElementById('alerts_max').value = a.max_per_alert ?? 15;
   document.getElementById('alerts_companies').value = (a.companies || []).join('\n');
+
+  // Schedule
+  const s = cfg.schedule || {};
+  const sa = s.alert || {};
+  const sd = s.digest || {};
+  document.getElementById('sched_alert_enabled').checked = sa.enabled || false;
+  document.getElementById('sched_alert_time').value = sa.time || '07:00';
+  document.getElementById('sched_digest_enabled').checked = sd.enabled || false;
+  document.getElementById('sched_digest_time').value = sd.time || '08:00';
+  document.getElementById('sched_digest_day').value = sd.day || 'monday';
 }
 
 function renderCompanies(companies) {
@@ -308,6 +343,17 @@ async function saveSettings() {
       companies: document.getElementById('alerts_companies').value.split('\n').map(s=>s.trim()).filter(Boolean),
       min_score: parseInt(document.getElementById('alerts_min_score').value) || 6,
       max_per_alert: parseInt(document.getElementById('alerts_max').value) || 15,
+    },
+    schedule: {
+      alert: {
+        enabled: document.getElementById('sched_alert_enabled').checked,
+        time: document.getElementById('sched_alert_time').value || '07:00',
+      },
+      digest: {
+        enabled: document.getElementById('sched_digest_enabled').checked,
+        time: document.getElementById('sched_digest_time').value || '08:00',
+        day: document.getElementById('sched_digest_day').value || 'monday',
+      },
     },
   };
 
