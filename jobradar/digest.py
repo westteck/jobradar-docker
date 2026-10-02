@@ -82,16 +82,18 @@ def render(new_jobs, closed_jobs, period_label: str, notes: list[str]) -> tuple[
 
 
 def send(cfg: dict, subject: str, html: str, text: str) -> None:
+    # Password priority: config.yaml email.smtp_password → env JOBRADAR_SMTP_PASSWORD
     # Google displays app passwords as "abcd efgh ijkl mnop" for readability,
     # but SMTP wants the bare 16 characters. Stripping here means a copy-paste
     # straight from Google's page just works.
-    password = (os.environ.get("JOBRADAR_SMTP_PASSWORD") or "").replace(" ", "").strip()
+    password = (cfg.get("smtp_password") or os.environ.get("JOBRADAR_SMTP_PASSWORD") or "").replace(" ", "").strip()
     if not password:
         raise RuntimeError(
-            "JOBRADAR_SMTP_PASSWORD is not set. Create a Gmail App Password and export it."
+            "No SMTP password set. Set it via the Settings page (Set/Change SMTP Password) "
+            "or the JOBRADAR_SMTP_PASSWORD environment variable."
         )
     if password.startswith("paste-your"):
-        raise RuntimeError("JOBRADAR_SMTP_PASSWORD is still the placeholder in run.sh.")
+        raise RuntimeError("SMTP password is still a placeholder.")
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = cfg["from"]

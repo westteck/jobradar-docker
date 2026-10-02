@@ -374,7 +374,11 @@ def settings_page():
 def get_settings():
     if not CONFIG_PATH.exists():
         return {"error": "config.yaml not found"}
-    return yaml.safe_load(CONFIG_PATH.read_text()) or {}
+    cfg = yaml.safe_load(CONFIG_PATH.read_text()) or {}
+    # Never expose the SMTP password value — only whether it's set
+    if cfg.get("email", {}).get("smtp_password"):
+        cfg["email"]["smtp_password"] = True
+    return cfg
 
 
 class CompanyEntry(BaseModel):

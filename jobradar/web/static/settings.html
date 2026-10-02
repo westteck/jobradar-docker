@@ -53,7 +53,15 @@
     <div class="field"><label>From</label><input id="email_from" placeholder="sender@example.com"></div>
     <div class="field"><label>SMTP Host</label><input id="email_smtp_host" placeholder="smtp.gmail.com"></div>
     <div class="field"><label>SMTP Port</label><input id="email_smtp_port" type="number" placeholder="587"></div>
-    <div class="help">SMTP password is set via JOBRADAR_SMTP_PASSWORD environment variable, not stored in config.</div>
+    <div class="field" id="smtp_password_row" style="display:none;">
+      <label>SMTP Password</label>
+      <input id="email_smtp_password" type="password" placeholder="Gmail App Password (16 chars)">
+    </div>
+    <div class="field">
+      <label>&nbsp;</label>
+      <button class="btn" id="smtpPassBtn" onclick="toggleSmtpPassword()" style="padding:6px 14px;font-size:0.85em;">Set / Change SMTP Password</button>
+      <span id="smtp_pass_status" style="margin-left:8px;font-size:0.85em;color:#888;"></span>
+    </div>
   </div>
 
   <!-- LLM / Model -->
@@ -162,6 +170,15 @@ async function loadSettings() {
   document.getElementById('email_from').value = e.from || '';
   document.getElementById('email_smtp_host').value = e.smtp_host || '';
   document.getElementById('email_smtp_port').value = e.smtp_port || 587;
+  // Show whether password is set (don't expose the value)
+  const passStatus = document.getElementById('smtp_pass_status');
+  if (e.smtp_password) {
+    passStatus.textContent = '✓ Password is set';
+    passStatus.style.color = '#4a9';
+  } else {
+    passStatus.textContent = 'Not set — emails won\'t send';
+    passStatus.style.color = '#e66';
+  }
 
   // LLM
   const l = cfg.llm || {};
@@ -322,6 +339,7 @@ async function saveSettings() {
       from: document.getElementById('email_from').value.trim(),
       smtp_host: document.getElementById('email_smtp_host').value.trim(),
       smtp_port: parseInt(document.getElementById('email_smtp_port').value) || 587,
+      smtp_password: document.getElementById('email_smtp_password').value.trim() || undefined,
     },
     llm: {
       provider: document.getElementById('llm_provider').value,
@@ -385,6 +403,20 @@ function showToast(msg, isError) {
   t.textContent = msg;
   t.className = 'toast show' + (isError ? ' error' : '');
   setTimeout(() => t.className = 'toast' + (isError ? ' error' : ''), 3000);
+}
+
+function toggleSmtpPassword() {
+  const row = document.getElementById('smtp_password_row');
+  const btn = document.getElementById('smtpPassBtn');
+  if (row.style.display === 'none') {
+    row.style.display = '';
+    btn.textContent = 'Cancel';
+    document.getElementById('email_smtp_password').focus();
+  } else {
+    row.style.display = 'none';
+    btn.textContent = 'Set / Change SMTP Password';
+    document.getElementById('email_smtp_password').value = '';
+  }
 }
 
 loadSettings();
