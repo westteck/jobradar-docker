@@ -25,6 +25,8 @@
 .company-row{display:grid;grid-template-columns:1.4fr 0.8fr 1.6fr 1fr auto;gap:8px;align-items:center;margin-bottom:8px}
 .company-row input{padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);font-size:13px;font-family:inherit;width:100%}
 .company-row select{padding:7px 8px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);font-size:13px;font-family:inherit}
+.company-header{display:grid;grid-template-columns:1.4fr 0.8fr 1.6fr 1fr auto;gap:8px;align-items:center;margin-bottom:6px;padding:0 0 4px;border-bottom:1px solid var(--line)}
+.company-header span{font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .add-company{margin-top:12px}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--accent);color:var(--bg);padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600;opacity:0;transition:all .3s;z-index:100}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -77,24 +79,20 @@
   <!-- Companies -->
   <div class="section">
     <h2>Companies <span id="company_count" style="font-weight:400;color:var(--muted);font-size:13px"></span></h2>
+    <div class="company-header">
+      <span>Name</span>
+      <span>Board</span>
+      <span>Slug / ID</span>
+      <span>Domain</span>
+      <span></span>
+    </div>
     <div id="companies_list"></div>
-    <div class="company-row add-company">
-      <input id="new_co_name" placeholder="Company name">
-      <select id="new_co_board">
-        <option value="">board…</option>
-        <option value="greenhouse">greenhouse</option>
-        <option value="lever">lever</option>
-        <option value="ashby">ashby</option>
-        <option value="workable">workable</option>
-        <option value="workday">workday</option>
-        <option value="oracle">oracle</option>
-        <option value="atlassian">atlassian</option>
-      </select>
-      <input id="new_co_slug" placeholder="board slug / ID">
-      <input id="new_co_domain" placeholder="company.com">
+    <div class="add-company-form" style="margin-top:12px;display:grid;grid-template-columns:1fr 2fr auto;gap:8px;align-items:center">
+      <input id="new_co_name" placeholder="Company name" style="padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);font-size:13px;font-family:inherit;width:100%">
+      <input id="new_co_url" placeholder="Paste job listing URL (e.g. https://company.wd5.myworkdayjobs.com/jobs)" style="padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);font-size:13px;font-family:inherit;width:100%">
       <button class="btn" onclick="addCompany()" style="padding:7px 14px;font-size:13px">+ Add</button>
     </div>
-    <div class="help">Board types: greenhouse, lever, ashby, workable, workday, oracle, atlassian. Slug is the board-specific identifier (e.g. workday tenant path or oracle cloud ID).</div>
+    <div class="help" id="detect_status" style="margin-top:6px"></div>
   </div>
 
   <!-- Discovery -->
@@ -125,7 +123,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const BOARDS = ['greenhouse','lever','ashby','workable','workday','oracle','atlassian'];
+const BOARDS = ['greenhouse','lever','ashby','workable','workday','oracle','atlassian','neogov'];
 let cfg = {};
 
 async function loadSettings() {
@@ -183,19 +181,79 @@ function renderCompanies(companies) {
 
 function esc(s) { return (s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
-function addCompany() {
+async function addCompany() {
   const name = document.getElementById('new_co_name').value.trim();
-  const board = document.getElementById('new_co_board').value;
-  const slug = document.getElementById('new_co_slug').value.trim();
-  const domain = document.getElementById('new_co_domain').value.trim();
-  if (!name || !board || !slug) { showToast('Name, board, and slug are required', true); return; }
+  const url = document.getElementById('new_co_url').value.trim();
+  const statusEl = document.getElementById('detect_status');
+  if (!name) { showToast('Company name is required', true); return; }
+  if (!url) { showToast('Job listing URL is required', true); return; }
+
+  statusEl.textContent = 'Detecting board type…';
+  statusEl.style.color = 'var(--muted)';
+
+  try {
+    const r = await fetch('/api/detect-board', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const det = await r.json();
+    if (det.error) {
+      // Detection failed — show manual fallback form
+      showManualFallback(name, url, det.error);
+      return;
+    }
+    if (!cfg.companies) cfg.companies = [];
+    cfg.companies.push({ name, board: det.board, slug: det.slug, domain: det.domain || '' });
+    renderCompanies(cfg.companies);
+    document.getElementById('new_co_name').value = '';
+    document.getElementById('new_co_url').value = '';
+    statusEl.textContent = `✓ Detected: ${det.board} · ${det.slug}${det.domain ? ' · ' + det.domain : ''}`;
+    statusEl.style.color = 'var(--g5)';
+    showToast('Company added — click Save to persist');
+  } catch(err) {
+    statusEl.textContent = '⚠ Detection failed: ' + err.message;
+    statusEl.style.color = '#e5484d';
+  }
+}
+
+function showManualFallback(name, url, errorMsg) {
+  const statusEl = document.getElementById('detect_status');
+  statusEl.innerHTML = `⚠ ${esc(errorMsg)} — fill in board type & slug manually.<br>` +
+    `<span style="font-size:11px;color:var(--muted)">Company will be saved but jobs won't be scraped until a parser is added for that board.</span>`;
+  statusEl.style.color = '#e5484d';
+
+  // Replace the add-company form with manual entry
+  const formDiv = document.querySelector('.add-company-form');
+  formDiv.innerHTML = `
+    <div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr 2fr 1fr auto;gap:8px;align-items:center">
+      <input value="${esc(name)}" data-mf="name" placeholder="Company name" style="padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);font-size:13px;font-family:inherit;width:100%">
+      <select data-mf="board" style="padding:7px 8px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);font-size:13px;font-family:inherit">
+        ${BOARDS.map(b => `<option value="${b}">${b}</option>`).join('')}
+      </select>
+      <input data-mf="slug" placeholder="Board slug / ID" style="padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);font-size:13px;font-family:inherit;width:100%">
+      <input data-mf="domain" placeholder="company.com (optional)" style="padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);font-size:13px;font-family:inherit;width:100%">
+      <button class="btn" onclick="addManualCompany()" style="padding:7px 14px;font-size:13px">+ Add</button>
+    </div>
+  `;
+}
+
+function addManualCompany() {
+  const name = document.querySelector('[data-mf=name]').value.trim();
+  const board = document.querySelector('[data-mf=board]').value;
+  const slug = document.querySelector('[data-mf=slug]').value.trim();
+  const domain = document.querySelector('[data-mf=domain]').value.trim();
+  if (!name || !slug) { showToast('Name and slug are required', true); return; }
   if (!cfg.companies) cfg.companies = [];
-  cfg.companies.push({ name, board, slug, domain });
+  cfg.companies.push({ name, board, slug, domain: domain || '' });
   renderCompanies(cfg.companies);
-  document.getElementById('new_co_name').value = '';
-  document.getElementById('new_co_board').value = '';
-  document.getElementById('new_co_slug').value = '';
-  document.getElementById('new_co_domain').value = '';
+  // Reset form back to normal
+  document.querySelector('.add-company-form').innerHTML = `
+    <input id="new_co_name" placeholder="Company name" style="padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);font-size:13px;font-family:inherit;width:100%">
+    <input id="new_co_url" placeholder="Paste job listing URL (e.g. https://company.wd5.myworkdayjobs.com/jobs)" style="padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);font-size:13px;font-family:inherit;width:100%">
+    <button class="btn" onclick="addCompany()" style="padding:7px 14px;font-size:13px">+ Add</button>
+  `;
+  document.getElementById('detect_status').textContent = '';
   showToast('Company added — click Save to persist');
 }
 

@@ -228,4 +228,28 @@ def atlassian_board(name: str, slug: str) -> list[dict]:
     return out
 
 
-BOARDS.update({"workday": workday, "oracle": oracle_cloud, "atlassian": atlassian_board})
+
+
+def neogov(name: str, slug: str) -> list[dict]:
+    """NeoGov (governmentjobs.com / schooljobs.com). slug is the careers path segment."""
+    api = f"https://www.governmentjobs.com/careers/{slug}/home/loadJobsOnMaps"
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; jobradar/0.1)",
+               "Accept": "*/*", "X-Requested-With": "XMLHttpRequest"}
+    r = requests.get(api, headers=headers, timeout=TIMEOUT)
+    r.raise_for_status()
+    data = r.json()
+    out = []
+    for j in data.get("jobList", []):
+        jid = j.get("ID", "")
+        title = j.get("Classification") or j.get("JobTitle") or ""
+        url = f"https://www.governmentjobs.com/careers/{slug}/jobs/{jid}"
+        city = (j.get("JobCity") or [""])
+        state = (j.get("JobAbbrvState") or [""])
+        loc = ", ".join(filter(None, [city[0].title() if city else "",
+                                       state[0] if state else ""]))
+        desc = j.get("FullDescription", "")
+        posted = _epoch(j.get("PostingDate")) if "/" in (j.get("PostingDate") or "") else None
+        out.append(_norm(name, title, url, loc, posted, desc, "neogov"))
+    return out
+
+BOARDS.update({"workday": workday, "oracle": oracle_cloud, "atlassian": atlassian_board, "neogov": neogov})
